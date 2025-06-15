@@ -1,0 +1,33 @@
+-- ========================================================
+-- SQL Script to Find Query Plans That May Utilize Parallelism
+-- This script helps DBAs identify query plans that may utilize 
+-- parallelism in SQL Server. It searches through cached plans 
+-- and filters those that indicate parallelism based on the 
+-- presence of the `Parallel` attribute in the query plan.
+-- Author: DBA Tools
+-- ========================================================
+
+-- ========================================================
+-- Key Features:
+-- 1. **Find Query Plans Using Parallelism**:
+--    - Retrieves query plans that may use parallelism by checking the `Parallel` attribute in the query plan.
+--    - Filters the plans based on the `Parallel` attribute being greater than 0, indicating parallel execution.
+--
+-- 2. **Cached Query Plans**:
+--    - Searches through cached query plans (`sys.dm_exec_cached_plans`) to find queries that may utilize parallelism.
+--    - Retrieves detailed information about the query plan, SQL text, and plan handle.
+--
+-- 3. **XML Query Plan Parsing**:
+--    - Uses XML parsing to check for parallelism in the execution plan.
+--    - Identifies the use of parallelism in query execution and helps analyze performance.
+-- ========================================================
+
+SELECT
+    p.*,  -- Query plan details
+    q.*,  -- SQL text of the query
+    cp.plan_handle  -- Plan handle for the cached query plan
+FROM sys.dm_exec_cached_plans cp
+CROSS APPLY sys.dm_exec_query_plan(cp.plan_handle) p  -- Get query plan details
+CROSS APPLY sys.dm_exec_sql_text(cp.plan_handle) q  -- Get SQL text from cached plan
+WHERE cp.cacheobjtype = 'Compiled Plan'  -- Only compiled query plans
+AND p.query_plan.value('declare namespace p="http://schemas.microsoft.com/sqlserver/2004/07/showplan";max(//p:RelOp/@Parallel)', 'float') > 0  -- Filter for plans using parallelism
